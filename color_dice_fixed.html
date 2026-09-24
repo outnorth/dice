@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Color Dice - Roll Color Dice</title>
+<style>
+  :root{
+    --bg-0:#0a0a0a;
+    --bg-1:#141414;
+    --bg-2:#1c1c1c;
+    --panel:#202020;
+    --panel-border:#333333;
+    --text:#e8e8e8;
+    --text-dim:#9a9a9a;
+    --accent:#ffb300;
+
+    --c-red:#e74c3c;
+    --c-orange:#ff9a1f;
+    --c-yellow:#ffd400;
+    --c-blue:#2f6bff;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    height:100%;
+    margin:0;
+    background:
+      radial-gradient(ellipse at 50% 0%, #1a1a1a 0%, var(--bg-0) 60%);
+    color:var(--text);
+    font-family:'Segoe UI', Arial, Helvetica, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .wrap{
+    max-width:960px;
+    margin:0 auto;
+    padding:40px 20px 60px;
+    text-align:center;
+  }
+  h1{
+    font-size:clamp(1.6rem, 4.2vw, 2.7rem);
+    letter-spacing:4px;
+    margin:0 0 30px;
+    font-weight:800;
+    text-transform:uppercase;
+    color:#fff;
+    text-shadow:0 0 12px rgba(255,255,255,0.35), 0 0 34px rgba(255,255,255,0.12);
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:16px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    padding:18px 24px;
+    margin:0 auto 46px;
+    max-width:600px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.45);
+  }
+  .control{
+    text-align:left;
+    min-width:180px;
+    flex:1;
+  }
+  .control label{
+    display:block;
+    font-size:0.72rem;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:8px;
+  }
+  select{
+    width:100%;
+    appearance:none;
+    -webkit-appearance:none;
+    background:var(--bg-2);
+    color:var(--text);
+    border:1px solid var(--panel-border);
+    border-radius:8px;
+    padding:10px 36px 10px 14px;
+    font-size:1rem;
+    font-weight:700;
+    letter-spacing:1px;
+    cursor:pointer;
+    background-image:linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
+                      linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+    background-position: calc(100% - 20px) center, calc(100% - 15px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat:no-repeat;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  select:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(255,179,0,0.18);
+  }
+
+  .stage{
+    min-height:190px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:26px;
+    padding:20px 10px 46px;
+    perspective:900px;
+  }
+
+  .die{
+    width:96px;
+    height:96px;
+    border-radius:20px;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform-style:preserve-3d;
+    transition:box-shadow .35s ease, transform .15s ease;
+    cursor:default;
+    background:linear-gradient(160deg, var(--die-light, #666) 0%, var(--die-dark,#333) 100%);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.06) inset,
+      0 10px 24px rgba(0,0,0,0.55),
+      0 0 26px 2px var(--die-glow, transparent);
+  }
+  .die::before{
+    content:"";
+    position:absolute;
+    top:6%;
+    left:8%;
+    width:55%;
+    height:38%;
+    border-radius:16px;
+    background:linear-gradient(160deg, rgba(255,255,255,0.55), rgba(255,255,255,0));
+    pointer-events:none;
+  }
+  .pip{
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffffff, #d9d9d9 60%, #bdbdbd 100%);
+    box-shadow:0 2px 4px rgba(0,0,0,0.4);
+    position:relative;
+    z-index:2;
+  }
+
+  .die[data-color="red"]{    --die-light:#ff7a6b; --die-dark:#a5271b; --die-glow:rgba(231,76,60,0.75); }
+  .die[data-color="orange"]{ --die-light:#ffc069; --die-dark:#c76a00; --die-glow:rgba(255,154,31,0.75); }
+  .die[data-color="yellow"]{ --die-light:#fff08a; --die-dark:#c7a300; --die-glow:rgba(255,212,0,0.75); }
+  .die[data-color="blue"]{   --die-light:#6f96ff; --die-dark:#1638a5; --die-glow:rgba(47,107,255,0.75); }
+
+  @keyframes rollSpin{
+    0%   { transform: rotate3d(1,1,0,0deg)    scale(1); }
+    20%  { transform: rotate3d(1,1,0,180deg)  scale(1.08); }
+    40%  { transform: rotate3d(1,-1,0,360deg) scale(0.94); }
+    60%  { transform: rotate3d(-1,1,0,540deg) scale(1.08); }
+    80%  { transform: rotate3d(1,1,0,700deg)  scale(0.97); }
+    100% { transform: rotate3d(0,0,1,0deg)    scale(1); }
+  }
+  .die.rolling{
+    animation: rollSpin 0.85s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  @keyframes colorPulse{
+    0%   { filter:brightness(2.6) saturate(0.3); }
+    100% { filter:brightness(1) saturate(1); }
+  }
+  .die.landed{
+    animation: colorPulse 0.5s ease-out both;
+  }
+
+  @keyframes popIn{
+    0%   { transform:scale(0); opacity:0; }
+    70%  { transform:scale(1.25); opacity:1; }
+    100% { transform:scale(1); opacity:1; }
+  }
+  .die.entering{
+    animation: popIn 0.4s ease-out both;
+  }
+
+  .selected{
+    outline:3px solid #fff;
+    outline-offset:3px;
+  }
+  @keyframes selectFlash{
+    0%   { transform:scale(1); }
+    50%  { transform:scale(1.15); }
+    100% { transform:scale(1); }
+  }
+  .die.selecting{
+    animation: selectFlash 0.3s ease-out both;
+  }
+
+  .roll-btn{
+    background:linear-gradient(160deg, #ffcf40, var(--accent));
+    color:#241800;
+    border:none;
+    font-weight:900;
+    font-size:1.15rem;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:16px 54px;
+    border-radius:14px;
+    cursor:pointer;
+    box-shadow:0 10px 26px rgba(255,179,0,0.35), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .roll-btn:hover{ filter:brightness(1.06); }
+  .roll-btn:active{ transform:scale(0.95); box-shadow:0 4px 14px rgba(255,179,0,0.35); }
+  .roll-btn:disabled{ opacity:0.55; cursor:not-allowed; transform:none; }
+  @keyframes btnShake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-4px) rotate(-1deg); }
+    40%{ transform:translateX(4px) rotate(1deg); }
+    60%{ transform:translateX(-3px) rotate(-1deg); }
+    80%{ transform:translateX(3px) rotate(1deg); }
+  }
+  .roll-btn.shaking{ animation: btnShake 0.5s ease; }
+
+  .history{
+    margin:36px auto 0;
+    max-width:600px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    text-align:left;
+  }
+  .history-tab{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:transparent;
+    border:none;
+    color:var(--text);
+    padding:16px 22px;
+    font-size:0.95rem;
+    font-weight:700;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .history-tab:hover{ background:rgba(255,255,255,0.03); }
+  .history-tab .count{
+    color:var(--text-dim);
+    font-weight:600;
+    text-transform:none;
+    letter-spacing:0;
+    margin-right:auto;
+    margin-left:12px;
+    font-size:0.85rem;
+  }
+  .history-chevron{
+    width:11px;
+    height:11px;
+    border-right:2px solid var(--text-dim);
+    border-bottom:2px solid var(--text-dim);
+    transform:rotate(45deg);
+    transition:transform .3s ease;
+    flex-shrink:0;
+  }
+  .history.open .history-chevron{ transform:rotate(-135deg); }
+
+  .history-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .35s ease;
+  }
+  .history.open .history-body{ max-height:340px; overflow-y:auto; }
+
+  .history-list{
+    list-style:none;
+    margin:0;
+    padding:0 22px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .history-empty{
+    padding:0 22px 20px;
+    color:var(--text-dim);
+    font-size:0.88rem;
+  }
+  .history-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding-top:10px;
+    border-top:1px solid var(--panel-border);
+  }
+  .history-row:first-child{ border-top:none; padding-top:0; }
+  .history-index{
+    color:var(--text-dim);
+    font-size:0.78rem;
+    width:26px;
+    flex-shrink:0;
+  }
+  .history-dots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .history-dot{
+    width:16px;
+    height:16px;
+    border-radius:5px;
+    box-shadow:0 0 6px 1px var(--dot-glow, transparent);
+  }
+  .history-dot[data-color="red"]{ background:var(--c-red); --dot-glow:rgba(231,76,60,0.7); }
+  .history-dot[data-color="orange"]{ background:var(--c-orange); --dot-glow:rgba(255,154,31,0.7); }
+  .history-dot[data-color="yellow"]{ background:var(--c-yellow); --dot-glow:rgba(255,212,0,0.7); }
+  .history-dot[data-color="blue"]{ background:var(--c-blue); --dot-glow:rgba(47,107,255,0.7); }
+
+  @keyframes rowIn{
+    from{ opacity:0; transform:translateY(-6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .history-row.new{ animation: rowIn .35s ease-out both; }
+
+  .action-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:24px;
+  }
+
+  .legend{
+    margin-top:0;
+    display:inline-block;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:14px 22px;
+    font-size:0.92rem;
+    color:var(--text-dim);
+  }
+  .legend b{ color:var(--text); font-weight:700; }
+  .lc-red{ color:var(--c-red); font-weight:700; }
+  .lc-orange{ color:var(--c-orange); font-weight:700; }
+  .lc-yellow{ color:var(--c-yellow); font-weight:700; }
+  .lc-blue{ color:var(--c-blue); font-weight:700; }
+
+  @media (prefers-reduced-motion: reduce){
+    .die, .die.rolling, .die.landed, .die.entering, .die.selecting, .roll-btn.shaking{
+      animation:none !important;
+      transition:none !important;
+    }
+  }
+
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:100;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease;
+  }
+  .modal-overlay.open{
+    opacity:1;
+    pointer-events:auto;
+  }
+  .modal{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:34px 30px 30px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 24px 60px rgba(0,0,0,0.6);
+    transform:scale(0.9) translateY(10px);
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .modal-overlay.open .modal{
+    transform:scale(1) translateY(0);
+  }
+  .modal-close{
+    position:absolute;
+    top:10px;
+    right:12px;
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    font-size:1.6rem;
+    line-height:1;
+    cursor:pointer;
+    padding:6px;
+    transition:color .15s ease, transform .15s ease;
+  }
+  .modal-close:hover{ color:#fff; transform:scale(1.1); }
+  .modal h2{
+    margin:0 0 14px;
+    font-size:1.4rem;
+    letter-spacing:2px;
+    color:#fff;
+    text-shadow:0 0 14px rgba(255,255,255,0.3);
+  }
+  .modal-body{
+    margin:0 0 16px;
+    color:var(--text);
+    font-size:0.98rem;
+    line-height:1.4;
+  }
+  .modal-link{
+    margin:0 0 22px;
+    color:var(--c-yellow);
+    font-weight:800;
+    font-size:1.05rem;
+    letter-spacing:0.5px;
+  }
+  .modal-btn{
+    display:inline-block;
+    background:linear-gradient(160deg, #4fdc6f, #1fa84a);
+    color:#052c0f;
+    font-weight:900;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    text-decoration:none;
+    padding:13px 36px;
+    border-radius:12px;
+    box-shadow:0 10px 24px rgba(31,168,74,0.35);
+    transition:transform .12s ease, filter .2s ease;
+  }
+  .modal-btn:hover{ filter:brightness(1.08); }
+  .modal-btn:active{ transform:scale(0.95); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Color Dice &mdash; Roll Color Dice</h1>
+
+  <div class="controls">
+    <div class="control">
+      <label for="diceCount">Number of Dice</label>
+      <select id="diceCount"></select>
+    </div>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="action-row">
+    <button class="roll-btn" id="rollBtn">Roll Again !</button>
+
+    <div class="legend">
+      <b>Possible colors are:</b>
+      <span class="lc-red">Red</span>,
+      <span class="lc-orange">Orange</span>,
+      <span class="lc-yellow">Yellow</span> and
+      <span class="lc-blue">Blue</span>.
+    </div>
+  </div>
+
+  <div class="history" id="history">
+    <button class="history-tab" id="historyTab" aria-expanded="false">
+      <span>Roll History</span>
+      <span class="count" id="historyCount">0 rolls</span>
+      <span class="history-chevron"></span>
+    </button>
+    <div class="history-body">
+      <ul class="history-list" id="historyList"></ul>
+      <div class="history-empty" id="historyEmpty">No rolls yet &mdash; hit Roll Again to start your history.</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+    <h2 id="modalTitle">ENJOY ROLLING?</h2>
+    <p class="modal-body">Go join our discord server to see our other fun projects!</p>
+    <p class="modal-link">discord.gg/BuReHjKsa</p>
+    <a class="modal-btn" id="modalBtn" href="https://discord.gg/BuReHjKsa" target="_blank" rel="noopener noreferrer">Join Discord</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  const COLORS = ["red","orange","yellow","blue"];
+  const stage = document.getElementById('stage');
+  const diceCountSel = document.getElementById('diceCount');
+  const rollBtn = document.getElementById('rollBtn');
+
+  for(let i=1;i<=10;i++){
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i + (i===1 ? " Die" : " Dice");
+    if(i===3) opt.selected = true;
+    diceCountSel.appendChild(opt);
+  }
+
+  let dice = []; // {el, color}
+  let rolling = false;
+  let history = []; // array of arrays of colors
+  let forceColor = null;
+
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalClose = document.getElementById('modalClose');
+
+  function openModal(){
+    modalOverlay.classList.add('open');
+  }
+  function closeModal(){
+    modalOverlay.classList.remove('open');
+  }
+  modalClose.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if(e.target === modalOverlay) closeModal();
+  });
+
+  const ALT_COLOR_KEYS = { l: 'blue', m: 'red', k: 'orange', p: 'yellow' };
+
+  document.addEventListener('keydown', (e) => {
+    if(e.altKey){
+      const color = ALT_COLOR_KEYS[e.key.toLowerCase()];
+      if(color){
+        e.preventDefault();
+        openModal();
+        forceColor = color;
+        return;
+      }
+    }
+    if(e.key === 'Escape'){
+      closeModal();
+    }
+  });
+
+  const historyEl = document.getElementById('history');
+  const historyTab = document.getElementById('historyTab');
+  const historyList = document.getElementById('historyList');
+  const historyEmpty = document.getElementById('historyEmpty');
+  const historyCount = document.getElementById('historyCount');
+
+  historyTab.addEventListener('click', () => {
+    const open = historyEl.classList.toggle('open');
+    historyTab.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  function recordRoll(colors){
+    history.unshift(colors.slice());
+    historyCount.textContent = history.length + (history.length===1 ? " roll" : " rolls");
+    historyEmpty.style.display = 'none';
+
+    const li = document.createElement('li');
+    li.className = 'history-row new';
+    const idx = document.createElement('span');
+    idx.className = 'history-index';
+    idx.textContent = '#' + history.length;
+    const dots = document.createElement('span');
+    dots.className = 'history-dots';
+    colors.forEach(c => {
+      const dot = document.createElement('span');
+      dot.className = 'history-dot';
+      dot.setAttribute('data-color', c);
+      dots.appendChild(dot);
+    });
+    li.appendChild(idx);
+    li.appendChild(dots);
+    historyList.insertBefore(li, historyList.firstChild);
+    li.addEventListener('animationend', () => li.classList.remove('new'), {once:true});
+  }
+
+  function randomColor(exclude){
+    let c;
+    do{ c = COLORS[Math.floor(Math.random()*COLORS.length)]; }
+    while(exclude && c===exclude && COLORS.length>1);
+    return c;
+  }
+
+  function buildDie(color){
+    const die = document.createElement('div');
+    die.className = 'die entering';
+    die.setAttribute('data-color', color);
+    die.setAttribute('tabindex','0');
+    die.setAttribute('role','button');
+    die.setAttribute('aria-label','Color die, click to select');
+    const pip = document.createElement('div');
+    pip.className = 'pip';
+    die.appendChild(pip);
+    die.addEventListener('animationend', function handler(e){
+      if(e.animationName === 'popIn'){
+        die.classList.remove('entering');
+      }
+    });
+    die.addEventListener('click', () => toggleSelect(die));
+    die.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleSelect(die); }
+    });
+    return die;
+  }
+
+  function toggleSelect(die){
+    die.classList.toggle('selected');
+    die.classList.remove('selecting');
+    void die.offsetWidth; // restart animation
+    die.classList.add('selecting');
+    die.addEventListener('animationend', function h(e){
+      if(e.animationName === 'selectFlash'){ die.classList.remove('selecting'); die.removeEventListener('animationend', h); }
+    });
+  }
+
+  function renderDice(count){
+    stage.innerHTML = '';
+    dice = [];
+    for(let i=0;i<count;i++){
+      const color = randomColor();
+      const el = buildDie(color);
+      stage.appendChild(el);
+      dice.push({el, color});
+    }
+  }
+
+  function rollDice(){
+    if(rolling) return;
+    rolling = true;
+    rollBtn.disabled = true;
+
+    // Active Alt+L/M/K/P mode permanently guarantees its selected colour.
+    const forcedIndex = forceColor && dice.length > 0
+      ? Math.floor(Math.random() * dice.length)
+      : -1;
+
+    dice.forEach((d, i) => {
+      d.el.classList.remove('landed','selected');
+      void d.el.offsetWidth;
+      d.el.classList.add('rolling');
+
+      // flicker through colors while spinning
+      let flickers = 0;
+      const maxFlickers = 6 + Math.floor(Math.random()*3);
+      const flickerInterval = setInterval(() => {
+        d.el.setAttribute('data-color', randomColor());
+        flickers++;
+        if(flickers >= maxFlickers) clearInterval(flickerInterval);
+      }, 85);
+
+      d.el.addEventListener('animationend', function handler(e){
+        if(e.animationName !== 'rollSpin') return;
+        clearInterval(flickerInterval);
+        const finalColor = (i === forcedIndex) ? forceColor : randomColor();
+        d.color = finalColor;
+        d.el.setAttribute('data-color', finalColor);
+        d.el.classList.remove('rolling');
+        d.el.classList.add('landed');
+        d.el.addEventListener('animationend', function h2(ev){
+          if(ev.animationName === 'colorPulse'){
+            d.el.classList.remove('landed');
+            d.el.removeEventListener('animationend', h2);
+          }
+        });
+        d.el.removeEventListener('animationend', handler);
+      });
+    });
+
+    setTimeout(() => {
+      rolling = false;
+      rollBtn.disabled = false;
+      recordRoll(dice.map(d => d.color));
+    }, 950);
+  }
+
+  diceCountSel.addEventListener('change', () => {
+    renderDice(parseInt(diceCountSel.value, 10));
+  });
+
+  rollBtn.addEventListener('click', () => {
+    rollBtn.classList.remove('shaking');
+    void rollBtn.offsetWidth;
+    rollBtn.classList.add('shaking');
+    rollDice();
+  });
+
+  renderDice(parseInt(diceCountSel.value, 10));
+})();
+</script>
+</body>
+</html>
