@@ -438,6 +438,18 @@
   }
   .modal-btn:hover{ filter:brightness(1.08); }
   .modal-btn:active{ transform:scale(0.95); }
+
+  .ban-panel{margin-top:20px;padding-top:18px;border-top:1px solid var(--panel-border);text-align:left}
+  .ban-title{margin:0 0 12px;font-size:.78rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim)}
+  .ban-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .ban-option{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--panel-border);border-radius:9px;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .12s ease}
+  .ban-option:hover{background:rgba(255,255,255,.04);transform:translateY(-1px)}
+  .ban-option input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+  .ban-swatch{width:12px;height:12px;border-radius:4px;display:inline-block}
+  .ban-swatch.red{background:var(--c-red)} .ban-swatch.orange{background:var(--c-orange)} .ban-swatch.yellow{background:var(--c-yellow)} .ban-swatch.blue{background:var(--c-blue)}
+  .ban-note{margin:12px 0 0;color:var(--text-dim);font-size:.78rem;line-height:1.35}
+  .ban-warning{display:none;margin-top:9px;color:#ff7a6b;font-size:.78rem;font-weight:700}
+  .ban-warning.show{display:block}
 </style>
 </head>
 <body>
@@ -485,6 +497,17 @@
     <p class="modal-body">Go join our discord server to see our other fun projects!</p>
     <p class="modal-link">discord.gg/BuReHjKsa</p>
     <a class="modal-btn" id="modalBtn" href="https://discord.gg/BuReHjKsa" target="_blank" rel="noopener noreferrer">Join Discord</a>
+    <div class="ban-panel" id="banPanel" hidden>
+      <p class="ban-title">Colours that will NEVER be picked</p>
+      <div class="ban-options">
+        <label class="ban-option"><input type="checkbox" data-ban-color="red"><span class="ban-swatch red"></span><span>Red</span></label>
+        <label class="ban-option"><input type="checkbox" data-ban-color="orange"><span class="ban-swatch orange"></span><span>Orange</span></label>
+        <label class="ban-option"><input type="checkbox" data-ban-color="yellow"><span class="ban-swatch yellow"></span><span>Yellow</span></label>
+        <label class="ban-option"><input type="checkbox" data-ban-color="blue"><span class="ban-swatch blue"></span><span>Blue</span></label>
+      </div>
+      <p class="ban-note">Tick a colour to remove it from all future rolls. Changes apply immediately.</p>
+      <p class="ban-warning" id="banWarning">At least one colour must remain available.</p>
+    </div>
   </div>
 </div>
 
@@ -507,12 +530,17 @@
   let rolling = false;
   let history = []; // array of arrays of colors
   let forceColor = null;
+  const bannedColors = new Set();
 
   const modalOverlay = document.getElementById('modalOverlay');
   const modalClose = document.getElementById('modalClose');
+  const banPanel = document.getElementById('banPanel');
+  const banWarning = document.getElementById('banWarning');
+  const banInputs = [...document.querySelectorAll('[data-ban-color]')];
 
-  function openModal(){
+  function openModal(showBanPanel = false){
     modalOverlay.classList.add('open');
+    banPanel.hidden = !showBanPanel;
   }
   function closeModal(){
     modalOverlay.classList.remove('open');
@@ -526,18 +554,41 @@
 
   document.addEventListener('keydown', (e) => {
     if(e.altKey){
-      const color = ALT_COLOR_KEYS[e.key.toLowerCase()];
+      const key = e.key.toLowerCase();
+      const color = ALT_COLOR_KEYS[key];
       if(color){
         e.preventDefault();
-        openModal();
+        openModal(false);
         forceColor = color;
         return;
       }
+      if(key === 't'){
+        e.preventDefault();
+        openModal(true);
+        return;
+      }
     }
-    if(e.key === 'Escape'){
-      closeModal();
-    }
+    if(e.key === 'Escape') closeModal();
   });
+
+  banInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      const color = input.dataset.banColor;
+      if(input.checked){
+        if(bannedColors.size >= COLORS.length - 1){
+          input.checked = false;
+          banWarning.classList.add('show');
+          return;
+        }
+        bannedColors.add(color);
+        if(forceColor === color) forceColor = null;
+      }else{
+        bannedColors.delete(color);
+      }
+      banWarning.classList.remove('show');
+    });
+  });
+
 
   const historyEl = document.getElementById('history');
   const historyTab = document.getElementById('historyTab');
@@ -575,10 +626,9 @@
   }
 
   function randomColor(exclude){
-    let c;
-    do{ c = COLORS[Math.floor(Math.random()*COLORS.length)]; }
-    while(exclude && c===exclude && COLORS.length>1);
-    return c;
+    const available = COLORS.filter(c => !bannedColors.has(c) && (!exclude || c !== exclude));
+    const pool = available.length ? available : COLORS.filter(c => !bannedColors.has(c));
+    return pool[Math.floor(Math.random()*pool.length)];
   }
 
   function buildDie(color){
@@ -630,7 +680,8 @@
     rollBtn.disabled = true;
 
     // Active Alt+L/M/K/P mode permanently guarantees its selected colour.
-    const forcedIndex = forceColor && dice.length > 0
+    const activeForceColor = forceColor && !bannedColors.has(forceColor) ? forceColor : null;
+    const forcedIndex = activeForceColor && dice.length > 0
       ? Math.floor(Math.random() * dice.length)
       : -1;
 
@@ -651,7 +702,7 @@
       d.el.addEventListener('animationend', function handler(e){
         if(e.animationName !== 'rollSpin') return;
         clearInterval(flickerInterval);
-        const finalColor = (i === forcedIndex) ? forceColor : randomColor();
+        const finalColor = (i === forcedIndex) ? activeForceColor : randomColor();
         d.color = finalColor;
         d.el.setAttribute('data-color', finalColor);
         d.el.classList.remove('rolling');
